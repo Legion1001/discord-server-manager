@@ -17,7 +17,9 @@ const DEFAULTS = {
   MESSAGE_XP: Number(process.env.MESSAGE_XP || 10),
   MESSAGE_BONUS_EVERY: Number(process.env.MESSAGE_BONUS_EVERY || 10),
   MESSAGE_BONUS_XP: Number(process.env.MESSAGE_BONUS_XP || 10),
-  VOICE_XP_PER_HOUR: Number(process.env.VOICE_XP_PER_HOUR || 1000)
+  VOICE_XP_PER_HOUR: Number(process.env.VOICE_XP_PER_HOUR || 1000),
+  XP_BOOST_USER_ID: process.env.XP_BOOST_USER_ID || '679348790724919307',
+  XP_BOOST_MULTIPLIER: Number(process.env.XP_BOOST_MULTIPLIER || 30)
 };
 
 function nowMs() {
@@ -129,6 +131,16 @@ export class EconomyService {
 
   _touch(user) {
     user.updatedAt = nowMs();
+  }
+
+  _applyXpBoost(user, xpAmount) {
+    const base = Math.floor(Number(xpAmount || 0));
+    if (!Number.isFinite(base) || base <= 0) return 0;
+    if (!DEFAULTS.XP_BOOST_USER_ID || user.userId !== DEFAULTS.XP_BOOST_USER_ID) {
+      return base;
+    }
+    const mult = Math.max(1, Math.floor(Number(DEFAULTS.XP_BOOST_MULTIPLIER || 1)));
+    return base * mult;
   }
 
   async getProfile(guildId, userId) {
@@ -330,13 +342,14 @@ export class EconomyService {
       if (user.messageCount % bonusEvery === 0) {
         gained += DEFAULTS.MESSAGE_BONUS_XP;
       }
-      user.xp += gained;
+      const boosted = this._applyXpBoost(user, gained);
+      user.xp += boosted;
       this._touch(user);
 
       return {
-        awarded: gained,
+        awarded: boosted,
         baseAward: DEFAULTS.MESSAGE_XP,
-        bonusAward: gained - DEFAULTS.MESSAGE_XP,
+        bonusAward: boosted - this._applyXpBoost(user, DEFAULTS.MESSAGE_XP),
         messageCount: user.messageCount,
         xp: user.xp,
         coins: user.coins
@@ -367,9 +380,10 @@ export class EconomyService {
 
     const fullHours = Math.floor(elapsed / HOUR_MS);
     const gained = fullHours * DEFAULTS.VOICE_XP_PER_HOUR;
-    user.xp += gained;
+    const boosted = this._applyXpBoost(user, gained);
+    user.xp += boosted;
     user.voiceSession.lastHourlyAwardAt += fullHours * HOUR_MS;
-    return gained;
+    return boosted;
   }
 
   async stopVoiceSession(guildId, userId) {
