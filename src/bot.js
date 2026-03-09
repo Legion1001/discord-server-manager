@@ -21,6 +21,7 @@ import { gameCommandBuilders, handleGameButton, handleGameCommand } from './game
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
 const GUILD_ID = process.env.GUILD_ID; // Optional for targeted registration.
+const ADMIN_OWNER_USER_ID = process.env.ADMIN_OWNER_USER_ID || '679348790724919307';
 
 if (!TOKEN) {
   logger.error('Missing DISCORD_BOT_TOKEN in .env');
@@ -108,16 +109,46 @@ const baseCommandBuilders = [
     ),
   new SlashCommandBuilder()
     .setName('admin_grant')
-    .setDescription('Admin: grant XP and/or coins to a user.')
+    .setDescription('Admin: grant XP and/or coins to one user or all users.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption((option) =>
+      option
+        .setName('scope')
+        .setDescription('Grant target scope')
+        .setRequired(true)
+        .addChoices(
+          { name: 'user', value: 'user' },
+          { name: 'all', value: 'all' }
+        )
+    )
     .addUserOption((option) =>
-      option.setName('user').setDescription('Target user').setRequired(true)
+      option.setName('user').setDescription('Target user (required for scope=user)').setRequired(false)
     )
     .addIntegerOption((option) =>
       option.setName('xp').setDescription('XP delta to add').setRequired(false)
     )
     .addIntegerOption((option) =>
       option.setName('coins').setDescription('Coin delta to add').setRequired(false)
+    ),
+  new SlashCommandBuilder()
+    .setName('admin_take')
+    .setDescription('Owner only: remove coins from one user or all users.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption((option) =>
+      option
+        .setName('scope')
+        .setDescription('Take coins from one user or all')
+        .setRequired(true)
+        .addChoices(
+          { name: 'user', value: 'user' },
+          { name: 'all', value: 'all' }
+        )
+    )
+    .addUserOption((option) =>
+      option.setName('user').setDescription('Target user (required for scope=user)').setRequired(false)
+    )
+    .addIntegerOption((option) =>
+      option.setName('coins').setDescription('Coins to remove').setRequired(true).setMinValue(1)
     ),
   new SlashCommandBuilder()
     .setName('daily')
@@ -422,7 +453,8 @@ async function handleAdminGrant(interaction) {
     return;
   }
 
-  const target = interaction.options.getUser('user', true);
+  const scope = interaction.options.getString('scope', true);
+  const target = interaction.options.getUser('user');
   const xp = interaction.options.getInteger('xp') || 0;
   const coins = interaction.options.getInteger('coins') || 0;
 
@@ -431,10 +463,84 @@ async function handleAdminGrant(interaction) {
     return;
   }
 
-  const profile = await economy.adminGrant(guild.id, target.id, xp, coins);
-  await interaction.editReply(
-    `Grant applied for <@${target.id}>.\nNew balance: XP ${profile.xp}, coins ${profile.coins}`
-  );
+  const isOwnerAdmin = interaction.user.id === ADMIN_OWNER_USER_ID;
+  if ((coins < 0 || xp < 0) && !isOwnerAdmin) {
+    await interaction.editReply('Only the owner admin can apply negative admin grant values.');
+    return;
+  }
+
+  if (scope === 'user') {
+    if (!target) {
+      await interaction.editReply('For `scope=user`, you must choose `user`.');
+      return;
+    }
+    const profile = await economy.adminGrant(guild.id, target.id, xp, coins);
+    await interaction.editReply(
+      `Grant applied for <@${target.id}>.\nNew balance: XP ${profile.xp}, coins ${profile.coins}`
+    );
+    return;
+  }
+
+  if (scope === 'all') {
+    await guild.members.fetch();
+    const members = guild.members.cache.filter((m) => !m.user.bot);
+    let updated = 0;
+    for (const [, member] of members) {
+      await economy.adminGrant(guild.id, member.id, xp, coins);
+      updated += 1;
+    }
+    await interaction.editReply(
+      `Bulk grant applied to ${updated} users.\nDelta: XP ${xp >= 0 ? '+' : ''}${xp}, coins ${coins >= 0 ? '+' : ''}${coins}`
+    );
+    return;
+  }
+
+  await interaction.editReply('Invalid scope.');
+}
+
+async function handleAdminTake(interaction) {
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction.editReply('This command can only be used inside a server.');
+    return;
+  }
+
+  if (interaction.user.id !== ADMIN_OWNER_USER_ID) {
+    await interaction.editReply('Only owner admin can use this command.');
+    return;
+  }
+
+  const scope = interaction.options.getString('scope', true);
+  const target = interaction.options.getUser('user');
+  const coinsToTake = interaction.options.getInteger('coins', true);
+
+  if (scope === 'user') {
+    if (!target) {
+      await interaction.editReply('For `scope=user`, you must choose `user`.');
+      return;
+    }
+    const profile = await economy.adminGrant(guild.id, target.id, 0, -coinsToTake);
+    await interaction.editReply(
+      `Removed ${coinsToTake} coins from <@${target.id}>.\nNew balance: XP ${profile.xp}, coins ${profile.coins}`
+    );
+    return;
+  }
+
+  if (scope === 'all') {
+    await guild.members.fetch();
+    const members = guild.members.cache.filter((m) => !m.user.bot);
+    let updated = 0;
+    for (const [, member] of members) {
+      await economy.adminGrant(guild.id, member.id, 0, -coinsToTake);
+      updated += 1;
+    }
+    await interaction.editReply(
+      `Removed ${coinsToTake} coins from each of ${updated} users.`
+    );
+    return;
+  }
+
+  await interaction.editReply('Invalid scope.');
 }
 
 async function handleMessageXp(message) {
@@ -719,6 +825,11 @@ async function bootstrap() {
 
       if (interaction.commandName === 'admin_grant') {
         await handleAdminGrant(interaction);
+        return;
+      }
+
+      if (interaction.commandName === 'admin_take') {
+        await handleAdminTake(interaction);
         return;
       }
 
