@@ -600,9 +600,22 @@ function startVoiceXpTicker(client) {
       const guilds = [...client.guilds.cache.values()];
 
       for (const guild of guilds) {
-        await guild.members.fetch();
-        const eligible = guild.members.cache.filter((m) => isVoiceEligible(m));
-        for (const [, member] of eligible) {
+        // Use current voice states cache to avoid expensive full member fetch each minute.
+        const eligibleStates = guild.voiceStates.cache.filter((state) => {
+          const member = state.member;
+          if (!member || member.user.bot) return false;
+          const channel = state.channel;
+          if (!channel) return false;
+          if (channel.type !== ChannelType.GuildVoice && channel.type !== ChannelType.GuildStageVoice) {
+            return false;
+          }
+          if (state.selfDeaf || state.serverDeaf) return false;
+          return true;
+        });
+
+        for (const [, state] of eligibleStates) {
+          const member = state.member;
+          if (!member) continue;
           const gained = await economy.tickVoiceXpForMember(guild.id, member.id);
           if (gained > 0) {
             logger.info(
@@ -771,7 +784,7 @@ async function bootstrap() {
         return;
       }
 
-      const guild = await client.guilds.fetch(guildId);
+      const guild = interaction.guild || client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId);
 
       const heavyCommands = new Set([
         'analyze_server',
