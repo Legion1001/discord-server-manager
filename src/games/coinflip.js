@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, sleep } from './gameUtils.js';
+import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond } from './gameUtils.js';
 
 const cooldowns = new CooldownManager();
 
@@ -35,11 +35,6 @@ export async function handleCoinflip({ interaction, economy }) {
   if (!balanceCheck) {
     return respond(interaction, { content: 'Not enough balance for this bet.', ephemeral: true });
   }
-
-  await respond(interaction, {
-    embeds: [gameEmbed('Coinflip').setDescription('Flipping the coin...')]
-  });
-  await sleep(700);
 
   const roll = Math.random() < 0.5 ? 'heads' : 'tails';
   const won = roll === side;

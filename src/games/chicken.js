@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, sleep } from './gameUtils.js';
+import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond } from './gameUtils.js';
 
 const cooldowns = new CooldownManager();
 const WIN_CHANCE_PERCENT = 50;
@@ -21,24 +21,6 @@ export async function handleChicken({ interaction, economy }) {
 
   const hasEnough = await economy.hasEnoughBalance(guildId, interaction.user.id, bet);
   if (!hasEnough) return respond(interaction, { content: 'Not enough balance for this bet.', ephemeral: true });
-
-  const frames = [
-    '🐔     🔫',
-    '🐔  💥  🔫',
-    '💨🐔    🔫'
-  ];
-  await respond(interaction, {
-    embeds: [gameEmbed('Chicken Fight').setDescription(`Aiming...\n\n${frames[0]}`)]
-  });
-  await sleep(350);
-  await respond(interaction, {
-    embeds: [gameEmbed('Chicken Fight').setDescription(`Firing...\n\n${frames[1]}`)]
-  });
-  await sleep(350);
-  await respond(interaction, {
-    embeds: [gameEmbed('Chicken Fight').setDescription(`Impact...\n\n${frames[2]}`)]
-  });
-  await sleep(300);
 
   const roll = Math.random() * 100;
   const won = roll < WIN_CHANCE_PERCENT;

@@ -4,7 +4,7 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, sleep } from './gameUtils.js';
+import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond } from './gameUtils.js';
 
 const cooldowns = new CooldownManager();
 const games = new Map();
@@ -86,11 +86,6 @@ export async function handleBlackjack({ interaction, economy }) {
     return respond(interaction, { content: 'Not enough balance for this bet.', ephemeral: true });
   }
 
-  await respond(interaction, {
-    embeds: [gameEmbed('Blackjack').setDescription('Dealing cards...')]
-  });
-  await sleep(900);
-
   const player = [drawCard(), drawCard()];
   const dealer = [drawCard(), drawCard()];
   const gameId = `${interaction.id}`;
@@ -170,12 +165,7 @@ export async function handleBlackjackButton({ interaction, economy }) {
   const dealer = game.dealer;
 
   if (action === 'hit') {
-    await interaction.update({
-      embeds: [gameEmbed('Blackjack').setDescription('Drawing card...')],
-      components: noControls()
-    });
-    await sleep(700);
-
+    await interaction.deferUpdate();
     player.push(drawCard());
     const v = handValue(player);
     if (v > 21) {
@@ -209,11 +199,7 @@ export async function handleBlackjackButton({ interaction, economy }) {
   }
 
   if (action === 'stand') {
-    await interaction.update({
-      embeds: [gameEmbed('Blackjack').setDescription('Dealer is thinking...')],
-      components: noControls()
-    });
-    await sleep(900);
+    await interaction.deferUpdate();
 
     while (handValue(dealer) < 17) {
       dealer.push(drawCard());
