@@ -1,0 +1,13 @@
+services:
+  discord-server-manager:
+    build: .
+    container_name: discord-server-manager
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Bratislava
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+      - ./logs:/app/logs

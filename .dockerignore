@@ -1,0 +1,9 @@
+node_modules
+npm-debug.log
+logs
+data
+exports
+.env
+.DS_Store
+.git
+.gitignore

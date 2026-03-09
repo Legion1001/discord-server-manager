@@ -1,0 +1,32 @@
+{
+  "name": "discord-server-manager",
+  "version": "1.0.0",
+  "description": "Discord server analysis and management prep bot",
+  "type": "module",
+  "main": "src/bot.js",
+  "scripts": {
+    "start": "node src/bot.js",
+    "daemon:start": "./scripts/bot-daemon.sh start",
+    "daemon:stop": "./scripts/bot-daemon.sh stop",
+    "daemon:restart": "./scripts/bot-daemon.sh restart",
+    "daemon:status": "./scripts/bot-daemon.sh status",
+    "create:f1-fans": "node src/createTextChannel.js",
+    "setup:economy-channel": "node src/setupEconomyChannel.js",
+    "kick:users": "node src/kickUsers.js",
+    "grant:user": "node src/grantByName.js",
+    "test": "echo \"No tests yet\""
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "server-management"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "discord.js": "^14.23.2",
+    "dotenv": "^17.2.3",
+    "fs-extra": "^11.3.2"
+  }
+}
