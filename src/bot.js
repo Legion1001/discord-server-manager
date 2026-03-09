@@ -144,11 +144,11 @@ const baseCommandBuilders = [
           { name: 'all', value: 'all' }
         )
     )
-    .addUserOption((option) =>
-      option.setName('user').setDescription('Target user (required for scope=user)').setRequired(false)
-    )
     .addIntegerOption((option) =>
       option.setName('coins').setDescription('Coins to remove').setRequired(true).setMinValue(1)
+    )
+    .addUserOption((option) =>
+      option.setName('user').setDescription('Target user (required for scope=user)').setRequired(false)
     ),
   new SlashCommandBuilder()
     .setName('daily')
