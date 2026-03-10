@@ -76,15 +76,15 @@ export async function handleRoulette({ interaction, economy }) {
     won = Math.random() < 0.4;
     spin = spinForColorBet(type, won);
     color = rouletteColor(spin);
-    multiplier = won ? 36 : 0;
+    multiplier = won ? 3.6 : 0;
   } else if (type === 'even' || type === 'odd') {
     if (spin !== 0) {
       won = type === 'even' ? spin % 2 === 0 : spin % 2 === 1;
     }
-    multiplier = won ? 36 : 0;
+    multiplier = won ? 3.6 : 0;
   } else if (type === 'number') {
     won = spin === tip;
-    multiplier = won ? 36 : 0;
+    multiplier = won ? 3.6 : 0;
   }
 
   const result = await economy.resolveBet(guildId, interaction.user.id, bet, multiplier);
