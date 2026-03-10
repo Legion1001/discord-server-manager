@@ -78,12 +78,17 @@ MESSAGE_BONUS_EVERY=10
 MESSAGE_BONUS_XP=10
 VOICE_XP_PER_HOUR=1000
 GAME_COOLDOWN_SECONDS=5
+XP_BOOST_USER_ID=
+XP_BOOST_MULTIPLIER=300
+COIN_BOOST_USER_ID=
+COIN_BOOST_MULTIPLIER=300
 ```
 
 Notes:
 
 - `GUILD_ID` is optional. If empty, commands are registered for every guild where bot is present.
 - Economy data is saved per guild in `data/economy/<guildId>.json`.
+- Economy writes are atomic and keep a recovery backup in `data/backups/economy/<guildId>.json.bak`.
 
 ## 2) Run the bot
 
@@ -132,6 +137,22 @@ Notes:
 
 - `railway.json` is included, so Railway uses the existing Dockerfile and starts with `node src/bot.js`.
 - After deploy, check Railway logs for `Logged in as ...`.
+
+### Safe deploy without XP/coins loss (cloud-only)
+
+Before deploy:
+
+```bash
+npm run economy:integrity -- --out data/integrity-before.json
+```
+
+After deploy:
+
+```bash
+npm run economy:integrity -- --baseline data/integrity-before.json --out data/integrity-after.json
+```
+
+This reports deltas in users/coins/xp per guild so you can verify no unexpected data loss happened.
 
 ## 3) Invite bot to your server
 

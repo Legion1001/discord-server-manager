@@ -9,6 +9,25 @@ function rouletteColor(num) {
   return RED_NUMBERS.has(num) ? 'red' : 'black';
 }
 
+function pickColorNumber(color) {
+  const pool = [...RED_NUMBERS];
+  if (color === 'red') {
+    return pool[randomInt(0, pool.length - 1)];
+  }
+  const blackPool = [];
+  for (let n = 1; n <= 36; n += 1) {
+    if (!RED_NUMBERS.has(n)) blackPool.push(n);
+  }
+  return blackPool[randomInt(0, blackPool.length - 1)];
+}
+
+function spinForColorBet(type, won) {
+  if (won) return pickColorNumber(type);
+  // losing outcome: opposite color or zero
+  if (Math.random() < 0.1) return 0;
+  return pickColorNumber(type === 'red' ? 'black' : 'red');
+}
+
 export const rouletteCommand = new SlashCommandBuilder()
   .setName('roulette')
   .setDescription('Roulette against bot.')
@@ -47,13 +66,16 @@ export async function handleRoulette({ interaction, economy }) {
   const hasEnough = await economy.hasEnoughBalance(guildId, interaction.user.id, bet);
   if (!hasEnough) return respond(interaction, { content: 'Not enough balance for this bet.', ephemeral: true });
 
-  const spin = randomInt(0, 36);
-  const color = rouletteColor(spin);
+  let spin = randomInt(0, 36);
+  let color = rouletteColor(spin);
   let won = false;
   let multiplier = 0;
 
   if (type === 'red' || type === 'black') {
-    won = color === type;
+    // Requested house edge for color bets: 60% lose / 40% win.
+    won = Math.random() < 0.4;
+    spin = spinForColorBet(type, won);
+    color = rouletteColor(spin);
     multiplier = won ? 36 : 0;
   } else if (type === 'even' || type === 'odd') {
     if (spin !== 0) {

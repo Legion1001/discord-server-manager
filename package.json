@@ -14,6 +14,7 @@
     "setup:economy-channel": "node src/setupEconomyChannel.js",
     "kick:users": "node src/kickUsers.js",
     "grant:user": "node src/grantByName.js",
+    "economy:integrity": "node scripts/economy-integrity.mjs",
     "test": "echo \"No tests yet\""
   },
   "keywords": [

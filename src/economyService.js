@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs-extra';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data', 'economy');
+const BACKUP_DIR = path.resolve(process.cwd(), 'data', 'backups', 'economy');
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
@@ -19,7 +20,9 @@ const DEFAULTS = {
   MESSAGE_BONUS_XP: Number(process.env.MESSAGE_BONUS_XP || 10),
   VOICE_XP_PER_HOUR: Number(process.env.VOICE_XP_PER_HOUR || 1000),
   XP_BOOST_USER_ID: process.env.XP_BOOST_USER_ID || '679348790724919307',
-  XP_BOOST_MULTIPLIER: Number(process.env.XP_BOOST_MULTIPLIER || 30)
+  XP_BOOST_MULTIPLIER: Number(process.env.XP_BOOST_MULTIPLIER || 300),
+  COIN_BOOST_USER_ID: process.env.COIN_BOOST_USER_ID || '679348790724919307',
+  COIN_BOOST_MULTIPLIER: Number(process.env.COIN_BOOST_MULTIPLIER || 300)
 };
 
 function nowMs() {
@@ -42,15 +45,32 @@ export class EconomyService {
     return path.join(DATA_DIR, `${guildId}.json`);
   }
 
+  backupPath(guildId) {
+    return path.join(BACKUP_DIR, `${guildId}.json.bak`);
+  }
+
   async loadGuild(guildId) {
     if (this.cache.has(guildId)) return this.cache.get(guildId);
 
     await fs.ensureDir(DATA_DIR);
     const file = this.guildPath(guildId);
+    const backupFile = this.backupPath(guildId);
     let data;
 
     if (await fs.pathExists(file)) {
-      data = await fs.readJson(file);
+      try {
+        data = await fs.readJson(file);
+      } catch (err) {
+        this.logger.warn(`Failed to parse economy file for guild ${guildId}, trying backup...`);
+        if (await fs.pathExists(backupFile)) {
+          data = await fs.readJson(backupFile);
+          await fs.ensureDir(DATA_DIR);
+          await fs.copy(backupFile, file, { overwrite: true });
+          this.logger.warn(`Recovered guild ${guildId} economy from backup.`);
+        } else {
+          throw err;
+        }
+      }
     } else {
       data = {
         guildId,
@@ -68,6 +88,22 @@ export class EconomyService {
 
     this.cache.set(guildId, data);
     return data;
+  }
+
+  async _safeWriteGuild(guildId, data) {
+    const file = this.guildPath(guildId);
+    const backupFile = this.backupPath(guildId);
+    const tmpFile = `${file}.tmp-${process.pid}-${Date.now()}`;
+
+    await fs.ensureDir(DATA_DIR);
+    await fs.ensureDir(BACKUP_DIR);
+
+    if (await fs.pathExists(file)) {
+      await fs.copy(file, backupFile, { overwrite: true });
+    }
+
+    await fs.writeJson(tmpFile, data, { spaces: 2 });
+    await fs.move(tmpFile, file, { overwrite: true });
   }
 
   ensureUser(guildData, userId) {
@@ -105,9 +141,7 @@ export class EconomyService {
 
     const current = this.writeLocks.get(guildId) || Promise.resolve();
     const next = current.then(async () => {
-      const file = this.guildPath(guildId);
-      await fs.ensureDir(DATA_DIR);
-      await fs.writeJson(file, data, { spaces: 2 });
+      await this._safeWriteGuild(guildId, data);
     });
     this.writeLocks.set(guildId, next.catch(() => {}));
     await next;
@@ -140,6 +174,16 @@ export class EconomyService {
       return base;
     }
     const mult = Math.max(1, Math.floor(Number(DEFAULTS.XP_BOOST_MULTIPLIER || 1)));
+    return base * mult;
+  }
+
+  _applyCoinBoost(user, coinAmount) {
+    const base = Math.floor(Number(coinAmount || 0));
+    if (!Number.isFinite(base) || base <= 0) return 0;
+    if (!DEFAULTS.COIN_BOOST_USER_ID || user.userId !== DEFAULTS.COIN_BOOST_USER_ID) {
+      return base;
+    }
+    const mult = Math.max(1, Math.floor(Number(DEFAULTS.COIN_BOOST_MULTIPLIER || 1)));
     return base * mult;
   }
 
@@ -321,11 +365,12 @@ export class EconomyService {
       }
 
       user.dailyClaimLastAt = now;
-      user.coins += DEFAULTS.DAILY_CLAIM_AMOUNT;
+      const boostedDaily = this._applyCoinBoost(user, DEFAULTS.DAILY_CLAIM_AMOUNT);
+      user.coins += boostedDaily;
       this._touch(user);
       return {
         ok: true,
-        amount: DEFAULTS.DAILY_CLAIM_AMOUNT,
+        amount: boostedDaily,
         nextAt: now + DEFAULTS.DAILY_CLAIM_COOLDOWN_MS,
         user: { ...user }
       };
@@ -509,7 +554,7 @@ export class EconomyService {
       let awardedUsers = 0;
       for (const userId of userIds) {
         const user = this.ensureUser(guild, userId);
-        user.coins += DEFAULTS.HOURLY_COIN_AMOUNT;
+        user.coins += this._applyCoinBoost(user, DEFAULTS.HOURLY_COIN_AMOUNT);
         this._touch(user);
         awardedUsers += 1;
       }
@@ -530,7 +575,7 @@ export class EconomyService {
       let awardedUsers = 0;
       for (const userId of userIds) {
         const user = this.ensureUser(guild, userId);
-        user.coins += DEFAULTS.DAILY_COIN_AMOUNT;
+        user.coins += this._applyCoinBoost(user, DEFAULTS.DAILY_COIN_AMOUNT);
         this._touch(user);
         awardedUsers += 1;
       }
