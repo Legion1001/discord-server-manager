@@ -1,8 +1,9 @@
 import path from 'path';
 import fs from 'fs-extra';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data', 'economy');
-const BACKUP_DIR = path.resolve(process.cwd(), 'data', 'backups', 'economy');
+const STORAGE_ROOT = path.resolve(process.env.ECONOMY_STORAGE_PATH || path.resolve(process.cwd(), 'data'));
+const DATA_DIR = path.resolve(STORAGE_ROOT, 'economy');
+const BACKUP_DIR = path.resolve(STORAGE_ROOT, 'backups', 'economy');
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
@@ -22,7 +23,9 @@ const DEFAULTS = {
   XP_BOOST_USER_ID: process.env.XP_BOOST_USER_ID || '679348790724919307',
   XP_BOOST_MULTIPLIER: Number(process.env.XP_BOOST_MULTIPLIER || 300),
   COIN_BOOST_USER_ID: process.env.COIN_BOOST_USER_ID || '679348790724919307',
-  COIN_BOOST_MULTIPLIER: Number(process.env.COIN_BOOST_MULTIPLIER || 300)
+  COIN_BOOST_MULTIPLIER: Number(process.env.COIN_BOOST_MULTIPLIER || 300),
+  ECONOMY_STORAGE_PATH: STORAGE_ROOT,
+  ECONOMY_REQUIRE_EXISTING: process.env.ECONOMY_REQUIRE_EXISTING === 'true'
 };
 
 function nowMs() {
@@ -71,7 +74,17 @@ export class EconomyService {
           throw err;
         }
       }
+    } else if (await fs.pathExists(backupFile)) {
+      data = await fs.readJson(backupFile);
+      await fs.ensureDir(DATA_DIR);
+      await fs.copy(backupFile, file, { overwrite: true });
+      this.logger.warn(`Recovered missing guild ${guildId} economy from backup.`);
     } else {
+      if (DEFAULTS.ECONOMY_REQUIRE_EXISTING) {
+        throw new Error(
+          `Economy file missing for guild ${guildId} at ${file}. ECONOMY_REQUIRE_EXISTING=true blocks creating empty economy.`
+        );
+      }
       data = {
         guildId,
         createdAt: new Date().toISOString(),

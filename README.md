@@ -82,6 +82,8 @@ XP_BOOST_USER_ID=
 XP_BOOST_MULTIPLIER=300
 COIN_BOOST_USER_ID=
 COIN_BOOST_MULTIPLIER=300
+ECONOMY_STORAGE_PATH=./data
+ECONOMY_REQUIRE_EXISTING=false
 ```
 
 Notes:
@@ -89,6 +91,8 @@ Notes:
 - `GUILD_ID` is optional. If empty, commands are registered for every guild where bot is present.
 - Economy data is saved per guild in `data/economy/<guildId>.json`.
 - Economy writes are atomic and keep a recovery backup in `data/backups/economy/<guildId>.json.bak`.
+- In cloud (Railway), set `ECONOMY_STORAGE_PATH=/data` and mount a persistent volume to `/data`.
+- Set `ECONOMY_REQUIRE_EXISTING=true` in production after first successful migration to prevent silent resets.
 
 ## 2) Run the bot
 
