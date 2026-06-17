@@ -4,6 +4,7 @@ import { blackjackCommand, handleBlackjack, handleBlackjackButton } from './blac
 import { rouletteCommand, handleRoulette } from './roulette.js';
 import { rpsCommand, handleRps, handleRpsButton } from './rps.js';
 import { chickenCommand, handleChicken } from './chicken.js';
+import { slotCommand, handleSlot } from './slot.js';
 
 export const gameCommandBuilders = [
   coinflipCommand,
@@ -11,7 +12,8 @@ export const gameCommandBuilders = [
   blackjackCommand,
   rouletteCommand,
   rpsCommand,
-  chickenCommand
+  chickenCommand,
+  slotCommand
 ];
 
 export async function handleGameCommand({ interaction, economy }) {
@@ -21,6 +23,7 @@ export async function handleGameCommand({ interaction, economy }) {
   if (interaction.commandName === 'roulette') return handleRoulette({ interaction, economy });
   if (interaction.commandName === 'rps') return handleRps({ interaction, economy });
   if (interaction.commandName === 'chicken') return handleChicken({ interaction, economy });
+  if (interaction.commandName === 'slot') return handleSlot({ interaction, economy });
   return false;
 }
 

@@ -15,7 +15,8 @@
     "kick:users": "node src/kickUsers.js",
     "grant:user": "node src/grantByName.js",
     "economy:integrity": "node scripts/economy-integrity.mjs",
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "backup:cloud-economy": "./scripts/cloud-economy-backup.sh"
   },
   "keywords": [
     "discord",

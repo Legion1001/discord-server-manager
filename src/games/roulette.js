@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, randomInt } from './gameUtils.js';
+import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, randomInt, sleep } from './gameUtils.js';
 
 const cooldowns = new CooldownManager();
 const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
@@ -89,6 +89,34 @@ export async function handleRoulette({ interaction, economy }) {
 
   const result = await economy.resolveBet(guildId, interaction.user.id, bet, multiplier);
   if (!result.ok) return respond(interaction, { content: 'Bet failed, try again.', ephemeral: true });
+
+  const spinFrames = [
+    '🎰 🔴⚫🔴⚫🔴 ⚪',
+    '🎰 ⚪ 🔴⚫🔴⚫🔴',
+    '🎰 🔴 ⚪ ⚫🔴⚫🔴',
+    '🎰 🔴⚫ ⚪ 🔴⚫🔴',
+    '🎰 🔴⚫🔴 ⚪ ⚫🔴',
+    '🎰 🔴⚫🔴⚫ ⚪ 🔴',
+    '🎰 🔴⚫🔴⚫🔴 ⚪',
+    '🎰 ✨⚪✨ 🔴⚫🔴⚫',
+    '🎰 🔥⚪🔥 🔴⚫🔴⚫'
+  ];
+
+  for (let i = 0; i < spinFrames.length; i += 1) {
+    const spinning = gameEmbed('Roulette')
+      .setDescription(`Spinning wheel...\n${spinFrames[i]}`)
+      .addFields(
+        { name: 'Bet', value: coins(bet), inline: true },
+        { name: 'Type', value: type, inline: true },
+        { name: 'Tip', value: type === 'number' ? String(tip) : '-', inline: true }
+      );
+    if (i === 0) {
+      await respond(interaction, { embeds: [spinning] });
+    } else {
+      await interaction.editReply({ embeds: [spinning] });
+    }
+    await sleep(140);
+  }
 
   const embed = gameEmbed('Roulette', won ? 0x57f287 : 0xed4245)
     .addFields(

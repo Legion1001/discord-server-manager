@@ -4,7 +4,7 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond } from './gameUtils.js';
+import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, sleep } from './gameUtils.js';
 
 const cooldowns = new CooldownManager();
 const games = new Map();
@@ -39,6 +39,10 @@ function renderHand(hand) {
   return `${hand.join(' ')} (${handValue(hand)})`;
 }
 
+function renderDealerHidden(dealer) {
+  return `${dealer[0]} 🂠`;
+}
+
 function controls(gameId) {
   return [
     new ActionRowBuilder().addComponents(
@@ -69,6 +73,48 @@ async function settleGame(economy, game, outcome) {
   const balance = await economy.getBalance(guildId, userId);
   const net = outcome === 'win' ? bet * 4 : outcome === 'push' ? 0 : -bet;
   return { coins: balance.coins, net };
+}
+
+async function animateInitialDeal(interaction, bet, player, dealer) {
+  const stages = [
+    {
+      text: 'Shuffling deck... 🃏',
+      your: '🂠',
+      dealerHand: '🂠 🂠'
+    },
+    {
+      text: 'Dealing cards... 🃏',
+      your: `${player[0]}`,
+      dealerHand: '🂠 🂠'
+    },
+    {
+      text: 'Dealing cards... 🃏',
+      your: `${player[0]} ${player[1]}`,
+      dealerHand: '🂠 🂠'
+    },
+    {
+      text: 'Dealer takes card... 🃏',
+      your: `${player[0]} ${player[1]}`,
+      dealerHand: renderDealerHidden(dealer)
+    }
+  ];
+
+  for (let i = 0; i < stages.length; i += 1) {
+    const s = stages[i];
+    const embed = gameEmbed('Blackjack')
+      .setDescription(s.text)
+      .addFields(
+        { name: 'Bet', value: coins(bet), inline: true },
+        { name: 'Your hand', value: s.your, inline: false },
+        { name: 'Dealer hand', value: s.dealerHand, inline: false }
+      );
+    if (i === 0) {
+      await respond(interaction, { embeds: [embed], components: noControls() });
+    } else {
+      await interaction.editReply({ embeds: [embed], components: noControls() });
+    }
+    await sleep(260);
+  }
 }
 
 export async function handleBlackjack({ interaction, economy }) {
@@ -103,6 +149,8 @@ export async function handleBlackjack({ interaction, economy }) {
   };
   games.set(gameId, game);
 
+  await animateInitialDeal(interaction, bet, player, dealer);
+
   const playerVal = handValue(player);
   const dealerVal = handValue(dealer);
 
@@ -132,7 +180,7 @@ export async function handleBlackjack({ interaction, economy }) {
     .addFields(
       { name: 'Bet', value: coins(bet), inline: true },
       { name: 'Your hand', value: renderHand(player), inline: false },
-      { name: 'Dealer hand', value: `${dealer[0]} ?`, inline: false }
+      { name: 'Dealer hand', value: renderDealerHidden(dealer), inline: false }
     );
 
   setTimeout(async () => {
@@ -143,7 +191,8 @@ export async function handleBlackjack({ interaction, economy }) {
     await economy.refundBet(guildId, interaction.user.id, bet);
   }, GAME_TIMEOUT_MS);
 
-  return respond(interaction, { embeds: [embed], components: controls(gameId) });
+  await interaction.editReply({ embeds: [embed], components: controls(gameId) });
+  return true;
 }
 
 export async function handleBlackjackButton({ interaction, economy }) {
@@ -166,6 +215,19 @@ export async function handleBlackjackButton({ interaction, economy }) {
 
   if (action === 'hit') {
     await interaction.deferUpdate();
+    await interaction.editReply({
+      embeds: [
+        gameEmbed('Blackjack')
+          .setDescription('Drawing your card... 🃏')
+          .addFields(
+            { name: 'Bet', value: coins(game.bet), inline: true },
+            { name: 'Your hand', value: renderHand(player), inline: false },
+            { name: 'Dealer hand', value: renderDealerHidden(dealer), inline: false }
+          )
+      ],
+      components: noControls()
+    });
+    await sleep(260);
     player.push(drawCard());
     const v = handValue(player);
     if (v > 21) {
@@ -191,7 +253,7 @@ export async function handleBlackjackButton({ interaction, economy }) {
       .addFields(
         { name: 'Bet', value: coins(game.bet), inline: true },
         { name: 'Your hand', value: renderHand(player), inline: false },
-        { name: 'Dealer hand', value: `${dealer[0]} ?`, inline: false }
+        { name: 'Dealer hand', value: renderDealerHidden(dealer), inline: false }
       );
 
     await interaction.editReply({ embeds: [embed], components: controls(gameId) });
@@ -200,9 +262,35 @@ export async function handleBlackjackButton({ interaction, economy }) {
 
   if (action === 'stand') {
     await interaction.deferUpdate();
+    await interaction.editReply({
+      embeds: [
+        gameEmbed('Blackjack')
+          .setDescription('Dealer turn... revealing cards 🃏')
+          .addFields(
+            { name: 'Bet', value: coins(game.bet), inline: true },
+            { name: 'Your hand', value: renderHand(player), inline: false },
+            { name: 'Dealer hand', value: renderHand(dealer), inline: false }
+          )
+      ],
+      components: noControls()
+    });
+    await sleep(260);
 
     while (handValue(dealer) < 17) {
       dealer.push(drawCard());
+      await interaction.editReply({
+        embeds: [
+          gameEmbed('Blackjack')
+            .setDescription('Dealer draws... 🃏')
+            .addFields(
+              { name: 'Bet', value: coins(game.bet), inline: true },
+              { name: 'Your hand', value: renderHand(player), inline: false },
+              { name: 'Dealer hand', value: renderHand(dealer), inline: false }
+            )
+        ],
+        components: noControls()
+      });
+      await sleep(260);
     }
 
     const p = handValue(player);

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, randomInt } from './gameUtils.js';
+import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, randomInt, sleep } from './gameUtils.js';
 
 const cooldowns = new CooldownManager();
 
@@ -41,6 +41,17 @@ export async function handleDice({ interaction, economy }) {
   const result = await economy.resolveBet(guildId, interaction.user.id, bet, multiplier);
   if (!result.ok) {
     return respond(interaction, { content: 'Bet failed, try again.', ephemeral: true });
+  }
+
+  const rollFrames = ['🎲 ▫️', '🎲 ◻️', '🎲 ◼️', '🎲 💥'];
+  for (let i = 0; i < rollFrames.length; i += 1) {
+    const e = gameEmbed('Dice').setDescription(`Rolling dice...\n${rollFrames[i]}`);
+    if (i === 0) {
+      await respond(interaction, { embeds: [e] });
+    } else {
+      await interaction.editReply({ embeds: [e] });
+    }
+    await sleep(120);
   }
 
   const embed = gameEmbed('Dice', outcome === 'win' ? 0x57f287 : outcome === 'draw' ? 0xfee75c : 0xed4245)

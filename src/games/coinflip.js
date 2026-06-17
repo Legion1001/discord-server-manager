@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond } from './gameUtils.js';
+import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, sleep } from './gameUtils.js';
 
 const cooldowns = new CooldownManager();
 
@@ -41,6 +41,17 @@ export async function handleCoinflip({ interaction, economy }) {
   const result = await economy.resolveBet(guildId, interaction.user.id, bet, won ? 3 : 0);
   if (!result.ok) {
     return respond(interaction, { content: 'Bet failed, try again.', ephemeral: true });
+  }
+
+  const frames = ['🪙', '🪙 ⤴️', '🪙 ⤵️', '🪙 ✨'];
+  for (let i = 0; i < frames.length; i += 1) {
+    const e = gameEmbed('Coinflip').setDescription(`Flipping coin...\n${frames[i]}`);
+    if (i === 0) {
+      await respond(interaction, { embeds: [e] });
+    } else {
+      await interaction.editReply({ embeds: [e] });
+    }
+    await sleep(120);
   }
 
   const embed = gameEmbed('Coinflip', won ? 0x57f287 : 0xed4245)

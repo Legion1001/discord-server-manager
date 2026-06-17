@@ -766,7 +766,7 @@ async function bootstrap() {
         `Interaction received: /${interaction.commandName} user=${interaction.user.tag} guild=${interaction.guildId || 'n/a'}`
       );
 
-      const gameCommands = new Set(['coinflip', 'dice', 'blackjack', 'roulette', 'rps', 'chicken']);
+      const gameCommands = new Set(['coinflip', 'dice', 'blackjack', 'roulette', 'rps', 'chicken', 'slot']);
       if (gameCommands.has(interaction.commandName)) {
         await interaction.deferReply();
         const handled = await handleGameCommand({ interaction, economy });

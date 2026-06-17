@@ -4,7 +4,7 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond } from './gameUtils.js';
+import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, sleep } from './gameUtils.js';
 
 const cooldowns = new CooldownManager();
 const games = new Map();
@@ -183,6 +183,20 @@ export async function handleRpsButton({ interaction, economy }) {
 
     const aPick = game.picks[game.challengerId];
     const bPick = game.picks[game.opponentId];
+
+    const frames = ['✊ vs ✊', '✊✋✌️ ...', '🪨📄✂️'];
+    const suspense = gameEmbed('RPS Showdown')
+      .setDescription(`Revealing picks...\n${frames[0]}`)
+      .addFields({ name: 'Stake', value: `${coins(game.bet)} each`, inline: false });
+    await interaction.update({ embeds: [suspense], components: [] });
+    for (let i = 1; i < frames.length; i += 1) {
+      await sleep(140);
+      const frameEmbed = gameEmbed('RPS Showdown')
+        .setDescription(`Revealing picks...\n${frames[i]}`)
+        .addFields({ name: 'Stake', value: `${coins(game.bet)} each`, inline: false });
+      await interaction.editReply({ embeds: [frameEmbed], components: [] });
+    }
+
     const win = winnerOf(aPick, bPick);
     game.status = 'finished';
     games.delete(gameId);
@@ -217,7 +231,7 @@ export async function handleRpsButton({ interaction, economy }) {
         { name: 'Stake', value: `${coins(game.bet)} each`, inline: false }
       );
 
-    await interaction.update({ embeds: [embed], components: [] });
+    await interaction.editReply({ embeds: [embed], components: [] });
     return true;
   }
 

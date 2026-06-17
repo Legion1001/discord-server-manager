@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond } from './gameUtils.js';
+import { CooldownManager, coins, ensurePositiveBet, fmtCooldown, gameEmbed, respond, sleep } from './gameUtils.js';
 
 const cooldowns = new CooldownManager();
 const WIN_CHANCE_PERCENT = 50;
@@ -27,6 +27,17 @@ export async function handleChicken({ interaction, economy }) {
 
   const result = await economy.resolveBet(guildId, interaction.user.id, bet, won ? 3 : 0);
   if (!result.ok) return respond(interaction, { content: 'Bet failed, try again.', ephemeral: true });
+
+  const frames = ['🐔 .......... 🔫', '🐔 ....... 💥', '🐔 ... 💥💥', won ? '🐔 ☠️' : '🐔 😈'];
+  for (let i = 0; i < frames.length; i += 1) {
+    const e = gameEmbed('Chicken Fight').setDescription(`Fight in progress...\n${frames[i]}`);
+    if (i === 0) {
+      await respond(interaction, { embeds: [e] });
+    } else {
+      await interaction.editReply({ embeds: [e] });
+    }
+    await sleep(130);
+  }
 
   const embed = gameEmbed('Chicken Fight', won ? 0x57f287 : 0xed4245)
     .setDescription(won ? 'You killed the chicken.' : 'The chicken killed you.')
